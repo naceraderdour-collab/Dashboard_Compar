@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Potato Imports Dashboard | LixCap</title>
+  <link rel="icon" type="image/png" href="logo.png">
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://elfalem.github.io/Leaflet.curve/src/leaflet.curve.js"></script>
+  <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="style.css">
+  
+  <style>
+    .password-screen {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: linear-gradient(135deg, #05293F 0%, #0F4878 100%);
+      display: flex; align-items: center; justify-content: center; z-index: 9999;
+    }
+    .password-screen.hidden { display: none; }
+    .password-box {
+      background: rgba(255,255,255,0.95); padding: 40px; border-radius: 20px;
+      text-align: center; box-shadow: 0 20px 60px rgba(0,0,0,0.3); max-width: 360px; width: 90%;
+    }
+    .password-box img { height: 50px; margin-bottom: 20px; }
+    .password-box h2 { color: #05293F; font-size: 18px; margin-bottom: 8px; }
+    .password-box p { color: #727373; font-size: 13px; margin-bottom: 24px; }
+    .password-box input {
+      width: 100%; padding: 14px 18px; font-size: 14px;
+      border: 2px solid #e0e0e0; border-radius: 10px; margin-bottom: 16px; outline: none;
+    }
+    .password-box input:focus { border-color: #0F4878; }
+    .password-box button {
+      width: 100%; padding: 14px; background: #0F4878; color: white;
+      border: none; border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer;
+    }
+    .password-box button:hover { background: #05293F; }
+    .password-box .error { color: #dc2626; font-size: 12px; margin-top: 12px; display: none; }
+    .password-box .error.show { display: block; }
+  </style>
+</head>
+<body>
+
+<div class="password-screen" id="passwordScreen">
+  <div class="password-box">
+    <img src="logo.png" alt="LixCap">
+    <h2>Trade Flow Dashboard</h2>
+    <p>Enter password to access the dashboard</p>
+    <input type="password" id="passwordInput" placeholder="Password" onkeypress="if(event.key==='Enter')checkPassword()">
+    <button onclick="checkPassword()">Access Dashboard</button>
+    <div class="error" id="passwordError">Incorrect password. Please try again.</div>
+  </div>
+</div>
+
+<script>
+  const DASHBOARD_PASSWORD = 'LixCap2025';
+  if (sessionStorage.getItem('authenticated') === 'true') {
+    document.getElementById('passwordScreen').classList.add('hidden');
+  }
+  function checkPassword() {
+    const input = document.getElementById('passwordInput');
+    const error = document.getElementById('passwordError');
+    if (input.value === DASHBOARD_PASSWORD) {
+      sessionStorage.setItem('authenticated', 'true');
+      document.getElementById('passwordScreen').classList.add('hidden');
+      error.classList.remove('show');
+    } else {
+      error.classList.add('show');
+      input.value = '';
+      input.focus();
+    }
+  }
+</script>
+
+<div class="main-content">
+<header>
+  <div class="header-left">
+    <img src="logo.png" alt="LixCap" class="logo logo-light">
+    <img src="logo-white.png" alt="LixCap" class="logo logo-dark">
+  </div>
+  <div class="header-center">
+    <h1 id="pageTitle">Potato Imports Dashboard</h1>
+  </div>
+  <div class="header-right">
+    <button class="theme-toggle" id="themeToggle" title="Toggle dark/light mode">
+      <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="5"></circle>
+        <line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line>
+        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+        <line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line>
+        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+      </svg>
+      <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+      </svg>
+    </button>
+  </div>
+</header>
+
+<div class="filters-bar">
+  <div class="filters-container">
+    <div class="filters">
+      <div class="compare-section">
+        <div class="compare-toggle-wrapper">
+          <label class="compare-toggle">
+            <input type="checkbox" id="compareMode">
+            <span class="compare-slider"></span>
+          </label>
+          <span class="compare-label">Compare</span>
+        </div>
+        <div class="compare-type-wrapper hidden" id="compareTypeWrapper">
+          <select id="compareType" class="compare-type-select">
+            <option value="countries">Countries</option>
+            <option value="years">Years</option>
+            <option value="temperature">Temperature</option>
+          </select>
+        </div>
+      </div>
+
+      <label>
+        <span>Imports to <span class="country-indicator country-1-dot hidden" id="partner1Dot"></span></span>
+        <select id="partner"></select>
+      </label>
+
+      <label class="compare-field hidden" id="partner2Label">
+        <span>Compare with <span class="country-indicator country-2-dot"></span></span>
+        <select id="partner2"></select>
+      </label>
+
+      <label>
+        <span>Year <span class="country-indicator country-1-dot hidden" id="year1Dot"></span></span>
+        <select id="year"></select>
+      </label>
+
+      <label class="compare-field hidden" id="year2Label">
+        <span>Compare with <span class="country-indicator country-2-dot"></span></span>
+        <select id="year2"></select>
+      </label>
+
+      <label>
+        <span>Top N</span>
+        <select id="topn">
+          <option value="5">Top 5</option>
+          <option value="10" selected>Top 10</option>
+          <option value="15">Top 15</option>
+          <option value="20">Top 20</option>
+        </select>
+      </label>
+
+      <label>
+        <span>Value Chain</span>
+        <select id="product"></select>
+      </label>
+
+      <label>
+        <span>Temperature <span class="country-indicator country-1-dot hidden" id="temp1Dot"></span></span>
+        <select id="temp"></select>
+      </label>
+
+      <label class="compare-field hidden" id="temp2Label">
+        <span>Compare with <span class="country-indicator country-2-dot"></span></span>
+        <select id="temp2"></select>
+      </label>
+
+      <label>
+        <span>Metric</span>
+        <select id="metric">
+          <option value="value_usd" selected>Value (USD)</option>
+          <option value="quantity_mt">Quantity (MT)</option>
+        </select>
+      </label>
+
+      <button id="reset" class="btn-reset">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+          <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+          <path d="M3 3v5h5"></path>
+        </svg>
+        Reset
+      </button>
+    </div>
+
+    <div class="stats-cards">
+      <div class="stat-card" id="usaCard1">
+        <div class="stat-card-header">
+          <span class="stat-dot country-1-color"></span>
+          <span id="usaCardTitle1">Imports from USA</span>
+        </div>
+        <div class="stat-card-value" id="usaValue1">N/A</div>
+        <div class="stat-card-unit" id="usaUnit1">USD</div>
+        <div class="stat-card-rank" id="usaRank1">Loading...</div>
+      </div>
+      <div class="stat-card hidden" id="usaCard2">
+        <div class="stat-card-header">
+          <span class="stat-dot country-2-color"></span>
+          <span id="usaCardTitle2">Imports from USA</span>
+        </div>
+        <div class="stat-card-value" id="usaValue2">N/A</div>
+        <div class="stat-card-unit" id="usaUnit2">USD</div>
+        <div class="stat-card-rank" id="usaRank2">Loading...</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SINGLE MODE GRID -->
+<main class="grid" id="singleGrid">
+  <section class="card glass map-card">
+    <div class="card-header map-header">
+      <h2 id="mapTitle">Top Export Sources</h2>
+      <div class="compare-legend hidden" id="compareLegend">
+        <div class="compare-legend-item" id="legend1Item" title="Click to toggle">
+          <span class="legend-dot country-1-color"></span>
+          <span id="legend1Name">Item 1</span>
+        </div>
+        <div class="compare-legend-item" id="legend2Item" title="Click to toggle">
+          <span class="legend-dot country-2-color"></span>
+          <span id="legend2Name">Item 2</span>
+        </div>
+      </div>
+    </div>
+    <div id="map"></div>
+  </section>
+  
+  <section class="card glass">
+    <div class="card-header">
+      <h2 id="barTitle">Top Exporters</h2>
+    </div>
+    <div id="bar"></div>
+  </section>
+  
+  <section class="card glass">
+    <div class="card-header">
+      <h2 id="lineTitle">Trend Over Time</h2>
+    </div>
+    <div id="line"></div>
+  </section>
+</main>
+
+<!-- COMPARE MODE GRID - Two bar charts -->
+<main class="grid-compare hidden" id="compareGrid">
+  <section class="card glass map-card-compare">
+    <div class="card-header map-header">
+      <h2 id="mapTitleCompare">Top Export Sources</h2>
+    </div>
+    <div id="mapCompare"></div>
+  </section>
+  
+  <section class="card glass bar-card">
+    <div class="card-header">
+      <h2 id="barTitle1"><span class="title-dot country-1-color"></span> Top Exporters</h2>
+    </div>
+    <div id="bar1"></div>
+  </section>
+  
+  <section class="card glass bar-card">
+    <div class="card-header">
+      <h2 id="barTitle2"><span class="title-dot country-2-color"></span> Top Exporters</h2>
+    </div>
+    <div id="bar2"></div>
+  </section>
+  
+  <section class="card glass line-card-compare">
+    <div class="card-header">
+      <h2 id="lineTitleCompare">Trend Over Time</h2>
+    </div>
+    <div id="lineCompare"></div>
+  </section>
+</main>
+
+<footer>
+  <span>© 2025 LixCap Advisory & Capital</span>
+</footer>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
